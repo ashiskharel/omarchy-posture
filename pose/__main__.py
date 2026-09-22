@@ -14,6 +14,7 @@ def main(argv=None):
     parser.add_argument("--source", default="camera", help="camera, /dev/videoN, rtsp://, http://, or an image file")
     parser.add_argument("--pose", default="mountain", choices=tuple(POSES))
     parser.add_argument("--dir", default="", help="Where live.jpg and live.json are written")
+    parser.add_argument("--no-speak", action="store_true", help="Do not say the coaching lines")
     args = parser.parse_args(argv)
 
     if args.command == "self-test":
@@ -29,7 +30,7 @@ def main(argv=None):
         return 0
 
     (directory / "pose.txt").write_text(args.pose + "\n")
-    serve(args.source, directory)
+    serve(args.source, directory, speak=not args.no_speak)
     return 0
 
 

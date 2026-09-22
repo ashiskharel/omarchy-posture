@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import signal
 import subprocess
 import time
@@ -78,7 +79,7 @@ class Capture:
         else:
             cmd += ["-i", device]
         cmd += ["-vf", "fps=5,scale=640:480", "-f", "rawvideo", "-pix_fmt", "rgb24", "-an", "pipe:1"]
-        self.proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+        self.proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, start_new_session=True)
 
     def _still_file(self):
         return self.source not in ("camera",) and not str(self.source).startswith(("/dev/", "rtsp://", "http://", "https://")) and Path(self.source).is_file()
@@ -205,9 +206,50 @@ def publish(directory: Path, frame, landmarks, pose, error=""):
     return payload
 
 
-def serve(source: str, directory: Path):
+class Speaker:
+    """Say a coaching line. A new line replaces the one still playing."""
+
+    def __init__(self):
+        self.proc = None
+        self.last = ""
+        self.last_at = 0.0
+        self.command = shutil.which("espeak-ng") or shutil.which("espeak")
+
+    def say(self, text: str):
+        if not self.command or not text:
+            return
+        now = time.monotonic()
+        if text == self.last and now - self.last_at < 8:
+            return
+        if now - self.last_at < 3.5:
+            return
+        if self.proc and self.proc.poll() is None:
+            self.proc.terminate()
+        self.proc = subprocess.Popen(
+            [self.command, "-s", "145", "-a", "140", text],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        self.last = text
+        self.last_at = now
+
+    def close(self):
+        if self.proc and self.proc.poll() is None:
+            self.proc.terminate()
+
+
+def spoken_line(payload) -> str:
+    cues = payload.get("cues") or []
+    fixes = [item["text"] for item in cues if not item.get("ok")]
+    if not fixes:
+        name = payload.get("pose_name") or "This pose"
+        return name + ". Hold there."
+    return fixes[0]
+
+
+def serve(source: str, directory: Path, speak: bool = True):
     capture = Capture(source)
-    tracker = None
+    speaker = Speaker() if speak else None
     try:
         capture.start()
         tracker = Tracker(directory)
@@ -216,18 +258,26 @@ def serve(source: str, directory: Path):
             if frame is not None:
                 frame = brighten(frame)
             if frame is None:
-                publish(directory, np.zeros((HEIGHT, WIDTH, 3), dtype=np.uint8), None, read_pose(directory), "The camera stopped. Check the source and try again.")
+                payload = publish(directory, np.zeros((HEIGHT, WIDTH, 3), dtype=np.uint8), None, read_pose(directory), "The camera stopped. Check the source and try again.")
+                if speaker:
+                    speaker.say(spoken_line(payload))
                 break
             try:
                 landmarks = tracker.landmarks(frame)
             except Exception as exc:
-                publish(directory, frame, None, read_pose(directory), str(exc))
+                payload = publish(directory, frame, None, read_pose(directory), str(exc))
+                if speaker:
+                    speaker.say(spoken_line(payload))
                 time.sleep(0.5)
                 continue
-            publish(directory, frame, landmarks, read_pose(directory))
+            payload = publish(directory, frame, landmarks, read_pose(directory))
+            if speaker:
+                speaker.say(spoken_line(payload))
             if capture.still is not None:
                 time.sleep(0.4)
     finally:
+        if speaker:
+            speaker.close()
         capture.close()
 
 

@@ -76,9 +76,30 @@ Panel {
     poseWrite.running = true
   }
 
+  function pluginRoot() {
+    var script = scriptPath()
+    var cut = script.lastIndexOf("/bin/pose")
+    return cut > 0 ? script.slice(0, cut) : script
+  }
+
   function startCoach() {
     if (coach.running) return
-    coach.command = [scriptPath(), "serve", "--source", sourceText, "--pose", pose, "--dir", cachePath]
+    // Run the virtualenv interpreter directly. uv and bytecode files must
+    // not be written into this plugin folder, or the shell reloads it and
+    // the panel closes.
+    var rootDir = pluginRoot()
+    var python = rootDir + "/.venv/bin/python"
+    coach.command = [
+      "env",
+      "PYTHONDONTWRITEBYTECODE=1",
+      "PYTHONPYCACHEPREFIX=" + cachePath + "/pyc",
+      "PYTHONPATH=" + rootDir,
+      python,
+      "-m", "pose", "serve",
+      "--source", sourceText,
+      "--pose", pose,
+      "--dir", cachePath
+    ]
     coach.running = true
   }
 

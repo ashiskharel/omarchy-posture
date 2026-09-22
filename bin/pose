@@ -2,5 +2,13 @@
 # Run the pose coach from this repo. uv creates the local environment on first use.
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 export PATH="${HOME}/.local/share/mise/shims:${HOME}/.local/bin:${PATH}"
+# Bytecode must not land inside an Omarchy plugin directory. The shell
+# reloads a plugin when any file there changes, which closes the panel.
+export PYTHONDONTWRITEBYTECODE=1
+export PYTHONPYCACHEPREFIX="${HOME}/.cache/omarchy-posture/pyc"
+mkdir -p "$PYTHONPYCACHEPREFIX"
 cd "$root"
+if [ -x "$root/.venv/bin/python" ]; then
+  exec "$root/.venv/bin/python" -m pose "$@"
+fi
 exec uv run --python 3.12 python -m pose "$@"
