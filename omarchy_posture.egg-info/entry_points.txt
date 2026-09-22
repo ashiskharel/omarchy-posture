@@ -1,2 +1,0 @@
-[console_scripts]
-pose = pose.__main__:main
