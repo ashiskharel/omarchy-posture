@@ -1,0 +1,20 @@
+[project]
+name = "omarchy-posture"
+version = "1.0.0"
+description = "Pose coaching for a laptop webcam, a USB camera, or an IP camera"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+  "ai-edge-litert",
+  "numpy",
+  "pillow",
+]
+
+[project.scripts]
+pose = "pose.__main__:main"
+
+[tool.uv]
+package = true
+
+[tool.setuptools]
+packages = ["pose"]

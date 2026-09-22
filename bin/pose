@@ -1,0 +1,6 @@
+#!/bin/sh
+# Run the pose coach from this repo. uv creates the local environment on first use.
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+export PATH="${HOME}/.local/share/mise/shims:${HOME}/.local/bin:${PATH}"
+cd "$root"
+exec uv run --python 3.12 python -m pose "$@"

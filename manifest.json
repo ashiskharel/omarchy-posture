@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "ashis.posture",
+  "name": "Posture",
+  "version": "1.0.0",
+  "author": "Ashis K",
+  "description": "Laptop, USB, or IP camera pose coaching. Frames stay on the machine.",
+  "kinds": ["bar-widget"],
+  "entryPoints": { "barWidget": "BarWidget.qml" },
+  "barWidget": {
+    "displayName": "Posture",
+    "description": "Yoga and home-gym alignment from a local camera",
+    "category": "Info",
+    "allowMultiple": false,
+    "defaultSection": "center"
+  }
+}
