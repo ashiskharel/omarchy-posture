@@ -16,6 +16,15 @@ POSES = {
 }
 SHORT = {"mountain": "Mtn", "fold": "Fold", "chair": "Chair", "side": "Side"}
 
+# Spoken once as soon as the camera opens, before the pose is judged,
+# so the trainee hears what to do while they are still getting into place.
+READY = {
+    "mountain": "Get ready for Mountain. Stand tall, feet together, arms by your sides. Step back until your whole body is in view.",
+    "fold": "Get ready for Forward fold. Feet under your hips, knees soft. Hinge from the hips and let the chest drop.",
+    "chair": "Get ready for Chair. Feet under your hips. Sit back and bend the knees, chest lifted.",
+    "side": "Get ready for a side stretch. Plant both feet. Reach one arm up and bend to the other side.",
+}
+
 
 def _pt(points, name):
     x, y, vis = points[name]
@@ -137,6 +146,17 @@ def coach(landmarks, pose):
     return cues
 
 
+def ready_line(pose):
+    return READY.get(pose, READY["mountain"])
+
+
+def still_getting_ready(payload):
+    if not payload.get("seen"):
+        return True
+    texts = " ".join(item.get("text", "") for item in payload.get("cues") or [])
+    return "in frame" in texts or "in view" in texts or "Step back" in texts
+
+
 def label_for(pose, cues, seen):
     short = SHORT.get(pose, "Pose")
     if not seen:
@@ -180,6 +200,10 @@ def self_test():
     missing = coach(hidden, "mountain")
     if missing[0]["ok"] or "frame" not in missing[0]["text"].lower():
         raise SystemExit(f"missing body was not caught: {missing}")
+    if "Mountain" not in ready_line("mountain") or "Forward fold" not in ready_line("fold"):
+        raise SystemExit("ready lines are missing the pose names")
+    if not still_getting_ready({"seen": False, "cues": []}):
+        raise SystemExit("an empty frame should count as getting ready")
     print("cues ok")
     print("mountain:", "; ".join(item["text"] for item in mountain))
     print("fold:", "; ".join(item["text"] for item in fold))

@@ -17,7 +17,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageDraw
 
-from pose.cues import POSES, SHORT, coach, label_for
+from pose.cues import POSES, SHORT, coach, label_for, ready_line, still_getting_ready
 
 MODEL_URL = (
     "https://tfhub.dev/google/lite-model/movenet/singlepose/lightning/"
@@ -215,15 +215,18 @@ class Speaker:
         self.last_at = 0.0
         self.command = shutil.which("espeak-ng") or shutil.which("espeak")
 
-    def say(self, text: str):
+    def say(self, text: str, replace: bool = False):
         if not self.command or not text:
             return
         now = time.monotonic()
-        if text == self.last and now - self.last_at < 8:
+        playing = self.proc is not None and self.proc.poll() is None
+        # Let the sentence finish. The getting-ready line is long on purpose,
+        # and cutting it off left the trainee in silence.
+        if playing and not replace:
             return
-        if now - self.last_at < 3.5:
+        if text == self.last and now - self.last_at < 12:
             return
-        if self.proc and self.proc.poll() is None:
+        if playing:
             self.proc.terminate()
         self.proc = subprocess.Popen(
             [self.command, "-s", "145", "-a", "140", text],
@@ -250,7 +253,14 @@ def spoken_line(payload) -> str:
 def serve(source: str, directory: Path, speak: bool = True):
     capture = Capture(source)
     speaker = Speaker() if speak else None
+    announced = ""
     try:
+        # Speak before the camera and the model are ready, so the trainee
+        # hears the setup while they are still getting into place.
+        pose = read_pose(directory)
+        announced = pose
+        if speaker:
+            speaker.say(ready_line(pose), replace=True)
         capture.start()
         tracker = Tracker(directory)
         while True:
@@ -270,8 +280,14 @@ def serve(source: str, directory: Path, speak: bool = True):
                     speaker.say(spoken_line(payload))
                 time.sleep(0.5)
                 continue
-            payload = publish(directory, frame, landmarks, read_pose(directory))
-            if speaker:
+            pose = read_pose(directory)
+            payload = publish(directory, frame, landmarks, pose)
+            if speaker and pose != announced:
+                announced = pose
+                speaker.say(ready_line(pose), replace=True)
+            elif speaker and still_getting_ready(payload):
+                speaker.say(ready_line(pose))
+            elif speaker:
                 speaker.say(spoken_line(payload))
             if capture.still is not None:
                 time.sleep(0.4)

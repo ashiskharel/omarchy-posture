@@ -25,7 +25,7 @@ omarchy plugin add https://github.com/ashiskharel/omarchy-posture.git --enable -
 omarchy bar put ashis.posture --after ashis.satellite
 ```
 
-Click the bar label. The camera turns on while the panel is open and turns off when you close it. The coaching line is spoken with `espeak-ng` so you can listen while you hold the pose. `--no-speak` turns that off.
+Click the bar label. The camera turns on while the panel is open and turns off when you close it. As soon as the panel opens, the pose is spoken so you can get into place before the coaching starts. Later lines are the adjustments, also with `espeak-ng`. `--no-speak` turns that off.
 
 ## What this is not
 
